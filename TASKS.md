@@ -19,13 +19,14 @@
 
 ---
 
-## M0 — Scaffold  `[ ]`  *(Fri AM)*
-- [ ] Next.js (App Router) + TypeScript + Tailwind initialized in `c:\Suyash_Projects\Sach`
-- [ ] `git init` + first commit + push to remote
-- [ ] PWA manifest + icons + installable
-- [ ] Env wiring: `ANTHROPIC_API_KEY`, Supabase URL/keys (`.env.local` + `.env.example`)
-- [ ] Deploy "hello" to Vercel — live URL works
-- [ ] Repo structure stubbed per PRD §4.2 (`app/`, `lib/finance/`, `lib/claude.ts`, `lib/schema.ts`, `components/`)
+## M0 — Scaffold  `[~]`  *(Sat — almost done)*
+- [x] Next.js 16 (App Router) + TypeScript + Tailwind v4 initialized in `c:\Suyash_Projects\Sach`
+- [x] `git init` + first commit + push to remote (`github.com/SKB3002/PolicySach`)
+- [x] PWA manifest (`src/app/manifest.ts`) + icon (`public/icon.svg`) + theme-color
+- [x] Env wiring: `.env.example` committed, `.env.local` ignored (Anthropic + Supabase keys)
+- [x] Repo structure stubbed per PRD §4.2 (all paths created; finance engine has working impls, ready for M1 tests)
+- [x] `npm run build` passes — 8 routes generated, TypeScript clean
+- [ ] **Deploy to Vercel — live URL works** *(needs user: connect repo at vercel.com/new)*
 - **✅ Done when:** blank app live on Vercel URL, installable as PWA.
 
 ## M1 — Finance Engine  `[ ]`  *(Fri PM → Sat AM)* ⭐ DO BEFORE ANY UI POLISH
