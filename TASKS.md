@@ -19,14 +19,14 @@
 
 ---
 
-## M0 — Scaffold  `[~]`  *(Sat — almost done)*
+## M0 — Scaffold  `[x]`  ✅ DONE *(Sat May 23)*
 - [x] Next.js 16 (App Router) + TypeScript + Tailwind v4 initialized in `c:\Suyash_Projects\Sach`
-- [x] `git init` + first commit + push to remote (`github.com/SKB3002/PolicySach`)
+- [x] `git init` + first commit + push to remote ([github.com/SKB3002/PolicySach](https://github.com/SKB3002/PolicySach))
 - [x] PWA manifest (`src/app/manifest.ts`) + icon (`public/icon.svg`) + theme-color
 - [x] Env wiring: `.env.example` committed, `.env.local` ignored (Anthropic + Supabase keys)
 - [x] Repo structure stubbed per PRD §4.2 (all paths created; finance engine has working impls, ready for M1 tests)
 - [x] `npm run build` passes — 8 routes generated, TypeScript clean
-- [ ] **Deploy to Vercel — live URL works** *(needs user: connect repo at vercel.com/new)*
+- [x] **Deployed to Vercel — live at [policy-sach.vercel.app](https://policy-sach.vercel.app/)**, PWA manifest + landing copy verified
 - **✅ Done when:** blank app live on Vercel URL, installable as PWA.
 
 ## M1 — Finance Engine  `[ ]`  *(Fri PM → Sat AM)* ⭐ DO BEFORE ANY UI POLISH
