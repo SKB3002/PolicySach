@@ -43,11 +43,14 @@
 - **✅ Done when:** all finance unit tests pass; numbers match a manual spreadsheet for 3 sample policies (endowment, ULIP, money-back).
 - > **Caveat:** "match a manual Excel spreadsheet" is partially satisfied — engine is internally consistent and matches the IRDAI formulas / known textbook IRR cases. A hand-built Excel reference for cell-level diff is a stretch goal we'll do post-launch if needed.
 
-## M2 — Manual-Entry End-to-End  `[ ]`  *(Sat PM)*
-- [ ] `/api/analyze` route — confirmed `PolicyInput` → finance engine → `AnalysisResult`
-- [ ] Manual-entry form (PRD §5.2) with helper text per field
-- [ ] Result/Verdict screen (PRD §5.4): headline IRR + verdict badge, 3 benchmark bars, surrender vs paid-up, red flags, "assumptions used" (expandable/editable), disclaimer
-- [ ] Red-flag rule checks (PRD §2.6)
+## M2 — Manual-Entry End-to-End  `[x]`  ✅ DONE *(Sat May 23)*
+- [x] `/api/analyze` route — zod-validated `PolicyInput` → `analyzePolicy()` → `AnalysisResult` (with 400/422/500 error shapes)
+- [x] Manual-entry form (`PolicyForm.tsx`) with helper text per field; "projected maturity value" visually emphasized as the most important field per PRD §5.3
+- [x] Result/Verdict screen (`ResultView.tsx`): headline IRR + verdict badge (keep/paidup/surrender), 3 benchmark bars with progress visualization, surrender vs paid-up dl-grid, red flags panel, expandable "assumptions used", inline disclaimer
+- [x] Red-flag rule checks (PRD §2.6) — wired in M1, surfaced in UI here
+- [x] sessionStorage handoff `/upload → /result/[id]` (Supabase persistence comes in M4)
+- [x] 4 API route tests passing (valid input → 200; invalid → 422; non-JSON → 400; LIC endowment → `surrender`)
+- [x] Live smoke test: prod build on `:3717`, LIC endowment POST → `verdict: surrender`, `realIRR: 4.82%`, ₹14.36L gap to term+index, FD + inflation red flags ✅
 - **✅ Done when:** user can manually analyze a policy → correct, complete verdict, no PDF/LLM needed.
 
 ## M3 — PDF Extraction + Editable Review  `[ ]`  *(Sun)*
