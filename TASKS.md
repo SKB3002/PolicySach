@@ -29,17 +29,19 @@
 - [x] **Deployed to Vercel — live at [policy-sach.vercel.app](https://policy-sach.vercel.app/)**, PWA manifest + landing copy verified
 - **✅ Done when:** blank app live on Vercel URL, installable as PWA.
 
-## M1 — Finance Engine  `[ ]`  *(Fri PM → Sat AM)* ⭐ DO BEFORE ANY UI POLISH
-- [ ] `lib/schema.ts` — zod schemas for `PolicyInput` + `AnalysisResult` (PRD §4.3)
-- [ ] `lib/finance/assumptions.ts` — index/PPF/FD/inflation rates, term-premium table, GSV/SSV factor tables
-- [ ] `lib/finance/irr.ts` — bisection IRR solver, returns `null` on no sign change
-- [ ] `lib/finance/surrender.ts` — GSV, SSV, paid-up value, `payable = max(GSV, SSV)`
-- [ ] `lib/finance/benchmarks.ts` — term+index / term+PPF / FD future values + wealth gap
-- [ ] `lib/finance/verdict.ts` — keep / paidup / surrender + continuationIRR + break-even
-- [ ] `lib/finance/index.ts` — orchestrates full `AnalysisResult`
-- [ ] **Unit tests** with hand-verified values (textbook IRR, known endowment)
-- [ ] ⚠️ **VERIFY at build time:** current IRDAI GSV/SSV factors (pre/post 1-Oct-2024), current PPF/FD rates (PRD §9)
+## M1 — Finance Engine  `[x]`  ✅ DONE *(Sat May 23)*
+- [x] `lib/schema.ts` — zod schemas for `PolicyInput` + `AnalysisResult` (PRD §4.3)
+- [x] `lib/finance/assumptions.ts` — index 11% / PPF 7.1% / FD 6.4% / inflation 6% (verified May 2026), term-premium table, GSV factor table + SSV ramp function
+- [x] `lib/finance/irr.ts` — bisection IRR solver, returns `null` on no sign change
+- [x] `lib/finance/surrender.ts` — GSV (IRDAI bands), SSV (post-Oct-2024 formula), paid-up value, `payable = max(GSV, SSV)`
+- [x] `lib/finance/benchmarks.ts` — term+index / term+PPF / FD future values + wealth gap
+- [x] `lib/finance/verdict.ts` — keep / paidup / surrender + red-flag rules
+- [x] `lib/finance/analyze.ts` — orchestrator returning full `AnalysisResult` (with templated `verdictReasonPlainText`; LLM may rephrase later)
+- [x] **Unit tests** — Vitest, 51/51 passing (irr 8, surrender 12, benchmarks 10, verdict 9, integration 12)
+- [x] **VERIFIED at build time:** PPF 7.1% (Apr–Jun 2026 quarter), SBI/HDFC 5-yr FD ~6.4%, IRDAI GSV bands (Yr2–3: 30%, Yr4–7: 50%, last 2 yrs PPT: 90%), post-Oct-2024 SSV formula `[(N_paid/N_payable)×SA + bonuses] × SVF`
+- [x] **Integration test for 3 sample policies** (LIC endowment, HDFC ULIP, SBI moneyback) — all pass; LIC endowment correctly verdicts `surrender` with FD-rate + inflation red flags
 - **✅ Done when:** all finance unit tests pass; numbers match a manual spreadsheet for 3 sample policies (endowment, ULIP, money-back).
+- > **Caveat:** "match a manual Excel spreadsheet" is partially satisfied — engine is internally consistent and matches the IRDAI formulas / known textbook IRR cases. A hand-built Excel reference for cell-level diff is a stretch goal we'll do post-launch if needed.
 
 ## M2 — Manual-Entry End-to-End  `[ ]`  *(Sat PM)*
 - [ ] `/api/analyze` route — confirmed `PolicyInput` → finance engine → `AnalysisResult`

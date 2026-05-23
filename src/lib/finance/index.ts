@@ -15,5 +15,15 @@ export {
   BENCHMARK_RATES,
   TERM_PREMIUM_TABLE,
   GSV_FACTORS,
+  GSV_LAST_TWO_YEARS_PPT,
   BONUS_SURRENDER_FACTOR,
+  SSV_DISCOUNT_RATE_CEILING,
+  ssvSurrenderValueFactor,
 } from "./assumptions";
+export { gsvFactor } from "./surrender";
+export {
+  analyzePolicy,
+  buildPolicyCashflows,
+  computePolicyYear,
+  type AnalyzeOptions,
+} from "./analyze";

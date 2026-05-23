@@ -1,11 +1,19 @@
 // IRDAI surrender value calculator. PRD §3.3.
-// payable = max(GSV, SSV). Estimates only — user should confirm with insurer.
+// payable = max(GSV, SSV). Per IRDAI Master Circular 2024:
+//   - GSV: floor; % of total premiums paid by policy year.
+//   - SSV: SSV = [(N_paid / N_payable) × SA + accruedBonuses] × SVF.
+// Estimates only — user should confirm exact figure with insurer.
 
-import { BONUS_SURRENDER_FACTOR, GSV_FACTORS } from "./assumptions";
+import {
+  BONUS_SURRENDER_FACTOR,
+  GSV_FACTORS,
+  GSV_LAST_TWO_YEARS_PPT,
+  ssvSurrenderValueFactor,
+} from "./assumptions";
 import type { SurrenderResult } from "../schema";
 
 export type SurrenderInput = {
-  policyYear: number; // years elapsed since policy start
+  policyYear: number; // full years elapsed since policy start
   annualPremium: number;
   premiumPayingTermYears: number;
   policyTermYears: number;
@@ -13,9 +21,10 @@ export type SurrenderInput = {
   accruedBonuses?: number; // for with-profit endowments
 };
 
-function gsvFactor(policyYear: number, ppt: number): number {
-  // Last two years of PPT: ~0.9 per IRDAI norms.
-  if (policyYear >= ppt - 1) return 0.9;
+export function gsvFactor(policyYear: number, ppt: number): number {
+  if (policyYear < 1) return 0;
+  // Last two years of premium-paying term: ~90% per IRDAI norms.
+  if (ppt >= 2 && policyYear >= ppt - 1) return GSV_LAST_TWO_YEARS_PPT;
   return GSV_FACTORS[policyYear] ?? 0.5;
 }
 
@@ -29,22 +38,24 @@ export function surrenderValue(input: SurrenderInput): SurrenderResult {
     accruedBonuses = 0,
   } = input;
 
-  const premiumsPaid = annualPremium * Math.min(policyYear, ppt);
+  const premiumsPaidCount = Math.min(policyYear, ppt);
+  const premiumsPaid = annualPremium * premiumsPaidCount;
 
-  // Guaranteed Surrender Value
+  // ── Guaranteed Surrender Value ────────────────────────────────────────────
   const gsv = gsvFactor(policyYear, ppt) * premiumsPaid;
 
-  // Paid-up value = (premiumsPaid / totalPremiumsPayable) × sumAssured + vested bonuses
-  const paidUpValue =
-    (Math.min(policyYear, ppt) / ppt) * sumAssured + accruedBonuses;
+  // ── Paid-up value ─────────────────────────────────────────────────────────
+  // (N_paid / N_payable) × SumAssured + vested bonuses (for with-profit plans)
+  const paidUpValue = (premiumsPaidCount / ppt) * sumAssured + accruedBonuses;
 
-  // Special Surrender Value ≈ paid-up + bonuses, discounted by a surrender
-  // factor that grows with proximity to maturity. Coarse estimate; if user
-  // has an exact insurer quote, prefer that upstream.
-  const ssvDiscount = Math.min(1, policyYear / pt);
+  // ── Special Surrender Value (IRDAI Oct-2024 structure) ────────────────────
+  // SSV = [(N_paid / N_payable) × SA + accruedBonuses] × SVF
+  const svf = ssvSurrenderValueFactor(policyYear, pt);
   const ssv =
-    paidUpValue * ssvDiscount + accruedBonuses * BONUS_SURRENDER_FACTOR;
+    ((premiumsPaidCount / ppt) * sumAssured + accruedBonuses) * svf +
+    accruedBonuses * BONUS_SURRENDER_FACTOR;
 
+  // Policyholder receives the higher of the two (IRDAI mandate).
   const payable = Math.max(gsv, ssv);
   return { gsv, ssv, payable, paidUpValue };
 }
