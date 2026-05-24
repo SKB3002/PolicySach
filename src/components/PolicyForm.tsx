@@ -7,6 +7,7 @@ import {
   type PolicyInput,
   type AnalysisResult,
 } from "@/lib/schema";
+import type { ExtractedPolicy } from "@/lib/extract";
 
 type FormState = {
   insurer: string;
@@ -42,9 +43,17 @@ const DEFAULTS: FormState = {
   annualIncome: "",
 };
 
-export function PolicyForm() {
+export function PolicyForm({
+  initialValues,
+  submitLabel = "Analyse my policy",
+}: {
+  initialValues?: Partial<ExtractedPolicy>;
+  submitLabel?: string;
+} = {}) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(DEFAULTS);
+  const [form, setForm] = useState<FormState>(() =>
+    initialValues ? mergeExtracted(initialValues) : DEFAULTS,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -296,7 +305,7 @@ export function PolicyForm() {
         disabled={isPending}
         className="flex h-12 items-center justify-center rounded-full bg-zinc-950 px-8 text-base font-medium text-zinc-50 transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
       >
-        {isPending ? "Analysing…" : "Analyse my policy"}
+        {isPending ? "Analysing…" : submitLabel}
       </button>
     </form>
   );
@@ -359,6 +368,34 @@ function Input({
       className={inputCls}
     />
   );
+}
+
+// Coerce an extracted (possibly partial / null-laden) policy into the form's
+// all-strings state. Null/missing fields fall back to DEFAULTS.
+function mergeExtracted(p: Partial<ExtractedPolicy>): FormState {
+  const s = (v: string | number | null | undefined, fallback: string) =>
+    v === null || v === undefined || v === "" ? fallback : String(v);
+  return {
+    ...DEFAULTS,
+    insurer: s(p.insurer, DEFAULTS.insurer),
+    planName: s(p.planName, DEFAULTS.planName),
+    policyType: (p.policyType ?? DEFAULTS.policyType) as FormState["policyType"],
+    sumAssured: s(p.sumAssured, DEFAULTS.sumAssured),
+    annualPremium: s(p.annualPremium, DEFAULTS.annualPremium),
+    premiumPayingTermYears: s(
+      p.premiumPayingTermYears,
+      DEFAULTS.premiumPayingTermYears,
+    ),
+    policyTermYears: s(p.policyTermYears, DEFAULTS.policyTermYears),
+    startDate: s(p.startDate, DEFAULTS.startDate),
+    ageAtStart: s(p.ageAtStart, DEFAULTS.ageAtStart),
+    projectedMaturityValue: s(
+      p.projectedMaturityValue,
+      DEFAULTS.projectedMaturityValue,
+    ),
+    illustrationScenario:
+      (p.illustrationScenario ?? DEFAULTS.illustrationScenario) as FormState["illustrationScenario"],
+  };
 }
 
 // Stable-ish id from the input — used for sessionStorage key + URL slug.

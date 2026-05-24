@@ -53,14 +53,16 @@
 - [x] Live smoke test: prod build on `:3717`, LIC endowment POST → `verdict: surrender`, `realIRR: 4.82%`, ₹14.36L gap to term+index, FD + inflation red flags ✅
 - **✅ Done when:** user can manually analyze a policy → correct, complete verdict, no PDF/LLM needed.
 
-## M3 — PDF Extraction + Editable Review  `[ ]`  *(Sun)*
-- [ ] `lib/claude.ts` — Anthropic client, static extraction system prompt + **prompt caching**, Haiku model
-- [ ] `/api/extract` — PDF → Claude structured output → zod-validated `PolicyInput` (repair/reject bad JSON)
-- [ ] Upload screen (drag/drop + "enter manually" + privacy reassurance)
-- [ ] Editable Review screen — pre-filled, every field editable, projected-maturity highlighted as most important
-- [ ] Graceful fallback to manual entry on extraction failure
-- [ ] ⚠️ Confirm Anthropic model id + pricing; verify prompt caching active
+## M3 — PDF Extraction + Editable Review  `[x]`  ✅ DONE *(Sun May 24)*
+- [x] **Provider swap from Claude Haiku to Llama 3.3 70B on Groq** (user cost call — Haiku not free; Groq has a generous free tier). `lib/extract.ts` is a provider-agnostic adapter — swap to Cerebras/Together by editing one file.
+- [x] `lib/extract.ts` — Groq SDK + `unpdf` (zero-binary PDF→text, works in Vercel serverless) + Llama 3.3 70B Versatile in JSON mode + tolerant `ExtractedPolicySchema` (most fields nullable; user fills gaps on review screen).
+- [x] `/api/extract` — multipart PDF in → `ExtractedPolicy` JSON out. 503 if `GROQ_API_KEY` missing (graceful), 413/415/422/502/500 for the various failure modes; PDF is processed in memory and **never persisted** (PRD §6).
+- [x] `/upload` redesigned — drag/drop PDF zone + "or enter details manually" link → both paths converge at `/review`.
+- [x] `/review` — Editable form pre-filled from `sessionStorage`; if no extraction data found, shows empty form (manual-entry path). Same `PolicyForm` component, now accepts `initialValues` and `submitLabel`.
+- [x] Graceful fallback to manual entry on every extraction failure mode (amber alert + working "enter manually" link kept visible).
+- [x] **6 extract unit tests** with mocked LLM client — covers happy path, null fields, invalid JSON, unknown policyType, network errors. Plus all 55 existing tests still pass (61/61 total).
 - **✅ Done when:** real LIC/HDFC illustration pre-fills review; user corrects 0–2 fields; analysis runs; failure falls back cleanly.
+- > **Pending live verification:** the end-to-end PDF flow needs a `GROQ_API_KEY` set on Vercel. Sign up at [console.groq.com](https://console.groq.com), paste the key into Vercel project env vars, then we'll smoke-test with a real LIC illustration.
 
 ## M4 — Share Card + Report + Email  `[ ]`  *(Mon AM)* — growth engine
 - [ ] `components/ResultCard.tsx` — shareable image/story (insurer + plan, big "Real return: X%", wealth gap, Sach branding, **no personal IDs**)
