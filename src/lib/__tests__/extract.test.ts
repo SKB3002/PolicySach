@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import {
   ExtractedPolicySchema,
   extractPolicyFromText,
+  selectRelevantPages,
   type ChatClient,
 } from "../extract";
 
@@ -105,6 +106,21 @@ describe("extractPolicyFromText (with mocked LLM)", () => {
     expect(res.error.message).toMatch(/network down/i);
   });
 
+  it("returns a friendly message when the LLM rate-limits / exceeds tokens", async () => {
+    const res = await extractPolicyFromText("x", {
+      async complete() {
+        throw new Error(
+          "Request too large for model on tokens per minute (TPM): Limit 12000, Requested 14725",
+        );
+      },
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) throw new Error("expected !ok");
+    expect(res.error.kind).toBe("llm_failed");
+    expect(res.error.message).toMatch(/free-tier extractor/i);
+    expect(res.error.message).not.toMatch(/12000|14725|TPM/i); // no leak
+  });
+
   it("ExtractedPolicySchema rejects extra unknown fields gracefully (strict only on known)", () => {
     // sanity check on the schema shape itself
     const r = ExtractedPolicySchema.safeParse({
@@ -121,5 +137,46 @@ describe("extractPolicyFromText (with mocked LLM)", () => {
       illustrationScenario: null,
     });
     expect(r.success).toBe(true);
+  });
+});
+
+describe("selectRelevantPages", () => {
+  const tnc = "Terms and conditions. The company reserves the right. ".repeat(
+    50,
+  );
+  const illustrationPage =
+    "Benefit Illustration. Sum Assured Rs. 10,00,000. Annual premium ₹50,000. Policy term 20 years. Maturity @8%: ₹17,00,000.";
+
+  it("returns full content when total is under budget", () => {
+    const out = selectRelevantPages(["short page"], 1000);
+    expect(out).toBe("short page");
+  });
+
+  it("drops irrelevant T&C pages when over budget", () => {
+    const out = selectRelevantPages(
+      [tnc, illustrationPage, tnc, tnc],
+      illustrationPage.length + 10,
+    );
+    expect(out).toContain("Sum Assured");
+    expect(out).not.toContain("Terms and conditions");
+  });
+
+  it("preserves original document order of kept pages", () => {
+    const pageA =
+      "Plan summary. Sum Assured ₹5L. Premium ₹30k. Policy term 15 yrs.";
+    const pageB = "Benefit illustration table. Maturity @8% ₹8L. Bonus ₹2L.";
+    const out = selectRelevantPages([pageA, tnc, pageB], 500);
+    // Both relevant pages kept; A must appear before B in output.
+    expect(out.indexOf(pageA)).toBeLessThan(out.indexOf(pageB));
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(selectRelevantPages([], 1000)).toBe("");
+  });
+
+  it("falls back to truncating a single oversized page when nothing fits", () => {
+    const huge = illustrationPage.repeat(100);
+    const out = selectRelevantPages([huge], 200);
+    expect(out.length).toBe(200);
   });
 });

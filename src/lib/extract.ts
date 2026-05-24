@@ -15,7 +15,39 @@ import { z } from "zod";
 import { IllustrationScenarioSchema, PolicyTypeSchema } from "./schema";
 
 export const EXTRACTION_MODEL = "llama-3.3-70b-versatile";
-export const MAX_PDF_CHARS = 40_000;
+// Groq free tier caps Llama 3.3 70B at 12k tokens/minute. Indian insurance
+// PDFs are token-heavy (number-dense tables, mixed-script content), so
+// ~2.5 chars/token is a safer planning ratio than the usual ~4. 18k chars
+// → ~6-7k tokens, leaves headroom for system prompt (~800 tok) + framing
+// while staying well under the 12k TPM limit.
+export const MAX_PDF_CHARS = 18_000;
+
+// Keywords used to score which PDF pages are relevant to extraction. Pages
+// rich in these terms (the illustration table, premium schedule, plan
+// summary) score highest; T&C boilerplate scores near zero and gets dropped
+// when we're over budget.
+const RELEVANCE_KEYWORDS = [
+  "sum assured",
+  "sum insured",
+  "premium",
+  "policy term",
+  "premium paying",
+  "maturity",
+  "benefit illustration",
+  "guaranteed",
+  "bonus",
+  "projected",
+  "fund value",
+  "nav",
+  "survival benefit",
+  "money back",
+  "@4%",
+  "@8%",
+  "@ 4%",
+  "@ 8%",
+  "lakhs",
+  "lakh",
+];
 
 // Tolerant intermediate schema — most fields may be null when the LLM
 // cannot confidently determine them. The user completes missing fields
@@ -110,12 +142,19 @@ export async function extractPolicyFromText(
       user: `Policy document text:\n\n${text}\n\nReturn JSON.`,
     });
   } catch (e) {
+    const rawMsg = e instanceof Error ? e.message : "Unknown LLM error";
+    // Detect token-budget / rate-limit errors and surface a friendly
+    // message instead of leaking the provider's billing pitch.
+    const friendly = /rate.?limit|too\s+large|tokens? per minute|tpm/i.test(
+      rawMsg,
+    )
+      ? "Your PDF is too dense for our free-tier extractor right now. Try a shorter PDF, or fill in the details manually below."
+      : /timeout|timed?\s*out/i.test(rawMsg)
+        ? "Reading your PDF took too long. Try again, or enter details manually."
+        : rawMsg;
     return {
       ok: false,
-      error: {
-        kind: "llm_failed",
-        message: e instanceof Error ? e.message : "Unknown LLM error",
-      },
+      error: { kind: "llm_failed", message: friendly },
     };
   }
 
@@ -159,9 +198,67 @@ export async function extractPolicyFromText(
 async function pdfToText(buffer: ArrayBuffer | Uint8Array): Promise<string> {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   const pdf = await getDocumentProxy(bytes);
-  // mergePages:true guarantees `text` is a single string.
-  const { text } = await extractText(pdf, { mergePages: true });
-  return text;
+  // Per-page so we can score each page's relevance to extraction.
+  // mergePages:false returns text as string[].
+  const { text } = await extractText(pdf, { mergePages: false });
+  const pages: string[] = Array.isArray(text) ? text : [text];
+  return selectRelevantPages(pages, MAX_PDF_CHARS);
+}
+
+/**
+ * Pick the most-relevant pages within a char budget. Pages rich in
+ * benefit-illustration keywords come first; pure-boilerplate T&C pages
+ * are dropped. Returns the kept pages joined in their original document
+ * order (preserves context for the LLM).
+ */
+export function selectRelevantPages(pages: string[], budget: number): string {
+  if (pages.length === 0) return "";
+  const totalChars = pages.reduce((s, p) => s + p.length, 0);
+  if (totalChars <= budget) return pages.join("\n\n");
+
+  const scored = pages.map((text, idx) => ({
+    idx,
+    text,
+    score: scorePage(text),
+  }));
+  // Highest score first; ties broken by earlier-page-wins.
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+
+  let used = 0;
+  const kept: typeof scored = [];
+  for (const p of scored) {
+    if (used + p.text.length > budget) {
+      // If we have nothing yet, accept a truncated version of this page.
+      if (kept.length === 0) {
+        kept.push({ ...p, text: p.text.slice(0, budget) });
+        break;
+      }
+      continue;
+    }
+    kept.push(p);
+    used += p.text.length;
+  }
+  // Restore document order so the LLM sees natural flow.
+  kept.sort((a, b) => a.idx - b.idx);
+  return kept.map((p) => p.text).join("\n\n");
+}
+
+function scorePage(text: string): number {
+  if (!text) return 0;
+  const lower = text.toLowerCase();
+  let score = 0;
+  for (const kw of RELEVANCE_KEYWORDS) {
+    // Count occurrences; cheaper than regex for short keyword lists.
+    let pos = 0;
+    while ((pos = lower.indexOf(kw, pos)) !== -1) {
+      score += kw.length >= 6 ? 2 : 1; // longer phrases weighted higher
+      pos += kw.length;
+    }
+  }
+  // Bonus for ₹/Rs. mentions — illustration tables are number-dense.
+  const rsHits = (lower.match(/\brs[\.\s]/g) ?? []).length;
+  const inrHits = (text.match(/₹/g) ?? []).length;
+  return score + rsHits + inrHits;
 }
 
 // ─── Chat-client adapter (lets us swap providers / mock in tests) ───────────
